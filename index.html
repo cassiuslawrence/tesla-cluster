@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Cluster</title>
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#0a0a0a" />
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%230a0a0a' rx='28'/%3E%3Ctext x='90' y='124' font-size='110' text-anchor='middle' font-family='sans-serif' fill='%23e82127' font-weight='700'%3ET%3C/text%3E%3C/svg%3E" />
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;500;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:             #0a0a0a;
+  --surface:        #141414;
+  --border:         rgba(255,255,255,0.07);
+  --text-primary:   #ffffff;
+  --text-dim:       rgba(255,255,255,0.22);
+  --text-secondary: rgba(255,255,255,0.40);
+  --accent:         #e82127;
+  --accent-dim:     rgba(232,33,39,0.12);
+  --warn:           #f5a623;
+  --green:          #4cd964;
+}
+.light {
+  --bg:             #efefef;
+  --surface:        #f8f8f8;
+  --border:         rgba(0,0,0,0.07);
+  --text-primary:   #0d0d0d;
+  --text-dim:       rgba(0,0,0,0.18);
+  --text-secondary: rgba(0,0,0,0.38);
+}
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: 'DM Sans', sans-serif;
+  transition: background .35s, color .35s;
+  touch-action: none;
+  -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ─────────  ROTATE HINT  ───────── */
+#rotateScreen {
+  display: none;
+  position: fixed; inset: 0;
+  background: var(--bg);
+  z-index: 9999;
+  flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 2vh;
+}
+#rotateScreen svg {
+  width: 48px; height: 48px;
+  fill: var(--text-secondary);
+  animation: rotateHint 2s ease-in-out infinite;
+}
+#rotateScreen p {
+  font-size: 13px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--text-secondary);
+}
+@keyframes rotateHint {
+  0%,100% { transform: rotate(0deg); }
+  40%,60% { transform: rotate(-90deg); }
+}
+@media (orientation: portrait) {
+  #rotateScreen { display: flex; }
+}
+
+/* ─────────  iOS PERMISSION GATE  ───────── */
+#permGate {
+  display: none;
+  position: fixed; inset: 0;
+  background: var(--bg);
+  z-index: 2000;
+  flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 2vh;
+  padding: 0 6vw;
+}
+#permGate.show { display: flex; }
+.perm-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 22px; font-weight: 700;
+  letter-spacing: .06em; color: var(--text-primary);
+}
+.perm-sub {
+  font-size: 11px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--text-secondary);
+  text-align: center; max-width: 280px; line-height: 1.8;
+}
+.perm-btn {
+  margin-top: 1vh; padding: .8em 2.4em;
+  border-radius: 24px;
+  border: 1px solid var(--accent);
+  background: transparent; color: var(--accent);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px; letter-spacing: .16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background .2s, color .2s;
+}
+.perm-btn:active { background: var(--accent); color: #fff; }
+.perm-btn.secondary {
+  border-color: var(--border);
+  color: var(--text-secondary);
+  font-size: 10px;
+  margin-top: 0;
+}
+
+/* ─────────  iOS STANDALONE HINT  ───────── */
+#installHint {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 1.2vh 5vw 1.6vh;
+  z-index: 700;
+  font-size: 10px; letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.7;
+}
+#installHint.show { display: block; }
+#installHint .arrow {
+  display: inline-block;
+  margin: 0 .3em;
+  color: var(--accent);
+}
+#installHint .close {
+  position: absolute;
+  right: 4vw; top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: .4em;
+}
+
+/* ─────────  MAIN LAYOUT  ───────── */
+#app {
+  width: 100vw; height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 0 4.5vw;
+  gap: 3vw;
+}
+
+/* ── LEFT ── */
+.panel-left {
+  display: flex; flex-direction: column;
+  gap: 2.2vh;
+  align-items: flex-start;
+}
+.compass-wrap { display: flex; flex-direction: column; gap: .5vh; }
+.lbl {
+  font-size: clamp(7px, 1.2vw, 10px);
+  font-weight: 500; letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.compass-ring {
+  width: clamp(52px, 9.5vw, 82px);
+  height: clamp(52px, 9.5vw, 82px);
+}
+.compass-ring svg {
+  width: 100%; height: 100%;
+  transition: transform .55s cubic-bezier(.34,1.2,.64,1);
+}
+.cardinal {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: clamp(12px, 2vw, 17px);
+  font-weight: 700; letter-spacing: .04em;
+  color: var(--text-primary);
+  margin-top: .4vh;
+}
+.rule { width: 28px; height: 1px; background: var(--border); }
+
+.gps-row { display: flex; align-items: center; gap: .55em; }
+.gps-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%; flex-shrink: 0;
+  transition: background .4s, box-shadow .4s;
+}
+.gps-dot.none      { background: var(--text-dim); }
+.gps-dot.acquiring { background: var(--warn); box-shadow: 0 0 7px rgba(245,166,35,.35); animation: blink 1.1s infinite; }
+.gps-dot.locked    { background: var(--green); box-shadow: 0 0 7px rgba(76,217,100,.3); animation: blink 2.6s infinite; }
+.gps-dot.frozen    { background: var(--warn); box-shadow: none; animation: none; }
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.35;} }
+.gps-acc {
+  font-size: clamp(8px, 1.3vw, 11px);
+  color: var(--text-secondary);
+  letter-spacing: .04em;
+}
+
+.bars-wrap { display: flex; flex-direction: column; gap: .4vh; }
+.bars {
+  display: flex; align-items: flex-end;
+  gap: clamp(2px, .4vw, 4px);
+  height: clamp(12px, 2.2vh, 18px);
+}
+.bar {
+  width: clamp(4px, .7vw, 7px);
+  border-radius: 2px 2px 1px 1px;
+  background: var(--border);
+  transition: background .5s ease;
+}
+.bar:nth-child(1){ height:25%; }
+.bar:nth-child(2){ height:50%; }
+.bar:nth-child(3){ height:75%; }
+.bar:nth-child(4){ height:100%; }
+.bar.q1 { background: #e82127; }
+.bar.q2 { background: #f5a623; }
+.bar.q3 { background: #f0d060; }
+.bar.q4 { background: #4cd964; }
+
+/* ── CENTER ── */
+.center {
+  display: flex; flex-direction: column;
+  align-items: center;
+}
+.gforce-ring {
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+#gforceCanvas {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  background: transparent;
+  border-radius: 50%;
+}
+.speed-wrap {
+  position: relative; z-index: 2;
+  display: flex; align-items: baseline;
+  justify-content: center;
+}
+.speed-num {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700; line-height: .88;
+  letter-spacing: -.02em;
+  color: var(--text-primary);
+  text-align: center;
+  width: 100%;
+  white-space: nowrap;
+  transition: color .25s;
+}
+.speed-wrap[data-digits="1"] { width: clamp(70px,13vw,110px); }
+.speed-wrap[data-digits="1"] .speed-num { font-size: clamp(90px,20vw,160px); }
+.speed-wrap[data-digits="2"] { width: clamp(110px,18vw,160px); }
+.speed-wrap[data-digits="2"] .speed-num { font-size: clamp(90px,20vw,160px); }
+.speed-wrap[data-digits="3"] { width: clamp(140px,22vw,200px); }
+.speed-wrap[data-digits="3"] .speed-num { font-size: clamp(72px,16vw,130px); }
+.speed-num.speeding { color: var(--accent); }
+.speed-num.dim { opacity: .25; }
+
+.unit {
+  font-size: clamp(9px,1.7vw,14px);
+  font-weight: 300; letter-spacing: .26em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-top: .6em;
+}
+
+/* ── RIGHT ── */
+.panel-right {
+  display: flex; flex-direction: column;
+  gap: 2.2vh;
+  align-items: flex-end;
+}
+.time-val {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: clamp(20px,4.6vw,42px);
+  font-weight: 500; letter-spacing: .02em;
+  line-height: 1; color: var(--text-primary);
+  text-align: right;
+}
+.time-date {
+  font-size: clamp(7px,1.2vw,11px);
+  color: var(--text-secondary);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  margin-top: .25em;
+}
+.icon-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: clamp(30px,4.5vw,40px);
+  height: clamp(30px,4.5vw,40px);
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  transition: transform .15s, background .3s;
+}
+.icon-btn:active { transform: scale(.88); }
+.icon-btn svg { width: 42%; height: 42%; fill: var(--text-secondary); transition: fill .3s; }
+
+/* ── ATMOSPHERE ── */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,.022) 3px, rgba(0,0,0,.022) 4px);
+  pointer-events: none;
+  z-index: 998;
+}
+
+#installBtn {
+  position: fixed; bottom: 1.8vh; right: 1.8vw;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  display: none; align-items: center; justify-content: center;
+  cursor: pointer; opacity: .45; z-index: 500;
+  transition: opacity .2s, transform .15s;
+}
+#installBtn.show { display: flex; }
+#installBtn:active { transform: scale(.88); opacity: 1; }
+#installBtn svg { width: 12px; height: 12px; fill: var(--text-secondary); }
+
+#wakeBadge {
+  position: fixed; bottom: 1.6vh; left: 50%;
+  transform: translateX(-50%);
+  font-size: 8px; letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  pointer-events: none; z-index: 400;
+}
+
+/* ── DEBUG OVERLAY (hidden, toggle via triple-tap clock) ── */
+#debug {
+  display: none;
+  position: fixed; top: 8vh; left: 4vw;
+  background: rgba(20,20,20,0.94);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1em 1.4em;
+  font-family: 'DM Sans', monospace;
+  font-size: 10px; line-height: 1.6;
+  color: var(--text-secondary);
+  z-index: 9000;
+  pointer-events: auto;
+  white-space: pre;
+}
+#debug.show { display: block; }
+</style>
+</head>
+<body>
+
+<!-- ROTATE HINT -->
+<div id="rotateScreen">
+  <svg viewBox="0 0 24 24"><path d="M16.48 2.52c3.27 1.55 5.61 4.72 5.97 8.48m-1.51 4.13c-.4 1.2-1.1 2.3-2.02 3.23M5.85 5.85C4.06 7.66 3 10.15 3 12.9c0 3.87 2.16 7.25 5.37 9.03M3.34 3.34l17.32 17.32"/></svg>
+  <p>Gire o dispositivo</p>
+</div>
+
+<!-- iOS PERMISSION GATE -->
+<div id="permGate">
+  <div class="perm-title">Bem-vindo</div>
+  <div class="perm-sub">Para mostrar velocidade, direção<br>e força G, ative os sensores</div>
+  <button class="perm-btn" id="permBtn">Ativar sensores</button>
+  <button class="perm-btn secondary" id="permSkip">Continuar sem sensores</button>
+</div>
+
+<!-- APP -->
+<div id="app">
+
+  <!-- LEFT -->
+  <div class="panel-left">
+    <div class="compass-wrap">
+      <span class="lbl">Direção</span>
+      <div class="compass-ring">
+        <svg id="compassSvg" viewBox="0 0 82 82" fill="none">
+          <circle cx="41" cy="41" r="39.5" stroke="var(--border)" stroke-width="1.2"/>
+          <g stroke="var(--text-dim)" stroke-width="1">
+            <line x1="41" y1="3"  x2="41" y2="10"/>
+            <line x1="79" y1="41" x2="72" y2="41"/>
+            <line x1="41" y1="79" x2="41" y2="72"/>
+            <line x1="3"  y1="41" x2="10" y2="41"/>
+          </g>
+          <polygon points="41,9 38.5,41 41,47 43.5,41" fill="var(--accent)"/>
+          <polygon points="41,73 38.5,41 41,35 43.5,41" fill="var(--text-dim)"/>
+          <circle cx="41" cy="41" r="3.5" fill="var(--surface)" stroke="var(--border)" stroke-width="1.2"/>
+        </svg>
+      </div>
+      <span class="cardinal" id="cardinalEl">—</span>
+    </div>
+
+    <div class="rule"></div>
+
+    <div class="gps-row">
+      <span class="gps-dot none" id="gpsDot"></span>
+      <span class="gps-acc" id="gpsAcc">aguardando</span>
+    </div>
+
+    <div class="bars-wrap">
+      <span class="lbl">GPS</span>
+      <div class="bars">
+        <span class="bar" id="b1"></span>
+        <span class="bar" id="b2"></span>
+        <span class="bar" id="b3"></span>
+        <span class="bar" id="b4"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="center">
+    <div class="gforce-ring">
+      <canvas id="gforceCanvas"></canvas>
+      <div class="speed-wrap" id="speedWrap" data-digits="1">
+        <div class="speed-num dim" id="speedEl">—</div>
+      </div>
+    </div>
+    <div class="unit">km/h</div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="panel-right">
+    <div>
+      <div class="time-val" id="timeEl">--:--</div>
+      <div class="time-date" id="dateEl">—</div>
+    </div>
+    <div class="rule" style="margin-left:auto;"></div>
+    <button class="icon-btn" id="themeBtn" aria-label="Tema">
+      <svg id="themeIco" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </div>
+</div>
+
+<div id="wakeBadge"></div>
+<button id="installBtn" aria-label="Instalar"><svg viewBox="0 0 24 24"><path d="M12 3v13m0 0l-4-4m4 4l4-4M3 18v2a1 1 0 001 1h16a1 1 0 001-1v-2"/></svg></button>
+
+<!-- iOS Safari standalone install hint -->
+<div id="installHint">
+  Para tela cheia, toque em <span class="arrow">⎙</span> e em "Adicionar à Tela de Início"
+  <span class="close" id="hintClose">×</span>
+</div>
+
+<!-- Debug overlay (hidden by default) -->
+<div id="debug"></div>
+
+<script>
+'use strict';
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║  LAYER 1 — BOOT: platform detection, DOM refs            ║
+// ╚══════════════════════════════════════════════════════════╝
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                     window.navigator.standalone === true;
+
+const dom = {
+  speedEl:    document.getElementById('speedEl'),
+  speedWrap:  document.getElementById('speedWrap'),
+  cardinal:   document.getElementById('cardinalEl'),
+  compass:    document.getElementById('compassSvg'),
+  gpsDot:     document.getElementById('gpsDot'),
+  gpsAcc:     document.getElementById('gpsAcc'),
+  bars:       [1,2,3,4].map(i => document.getElementById('b'+i)),
+  timeEl:     document.getElementById('timeEl'),
+  dateEl:     document.getElementById('dateEl'),
+  themeBtn:   document.getElementById('themeBtn'),
+  themeIco:   document.getElementById('themeIco'),
+  canvas:     document.getElementById('gforceCanvas'),
+  wakeBadge:  document.getElementById('wakeBadge'),
+  permGate:   document.getElementById('permGate'),
+  permBtn:    document.getElementById('permBtn'),
+  permSkip:   document.getElementById('permSkip'),
+  installBtn: document.getElementById('installBtn'),
+  installHint:document.getElementById('installHint'),
+  hintClose:  document.getElementById('hintClose'),
+  debug:      document.getElementById('debug'),
+};
+const ctx = dom.canvas.getContext('2d');
+
+// Diagnostic state for debug overlay
+const diag = {
+  platform: isIOS ? 'iOS' : 'Android/other',
+  standalone: isStandalone,
+  motionSrc: 'none',
+  motionEvents: 0,
+  orientEvents: 0,
+  gpsFixes: 0,
+  lastGpsMs: 0,
+  permGranted: { motion: 'n/a', orient: 'n/a' },
+  noSleep: false,
+};
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║  LAYER 2 — NoSleep (production-grade for iOS/Android)    ║
+// ║  Strategy: 1) WakeLock API native 2) Silent audio loop   ║
+// ║  Audio approach is MORE reliable than video on iOS 17+   ║
+// ╚══════════════════════════════════════════════════════════╝
+class NoSleep {
+  constructor(){
+    this.enabled = false;
+    this._wakeLock = null;
+    this._audioCtx = null;
+    this._oscillator = null;
+    this._gain = null;
+    this._tick = null;
+    this._reacquire = null;
+  }
+
+  async enable(){
+    if(this.enabled) return true;
+
+    // Strategy 1: Native Wake Lock API (Android Chrome, Safari 16.4+)
+    if('wakeLock' in navigator){
+      try {
+        this._wakeLock = await navigator.wakeLock.request('screen');
+        this.enabled = true;
+        this._reacquire = async () => {
+          if(document.visibilityState === 'visible' && !this._wakeLock){
+            try { this._wakeLock = await navigator.wakeLock.request('screen'); } catch(_){}
+          }
+        };
+        document.addEventListener('visibilitychange', this._reacquire);
+        return true;
+      } catch(e){ /* fall through to audio strategy */ }
+    }
+
+    // Strategy 2: Silent audio context (universal fallback for old iOS)
+    // This works because mobile browsers won't sleep while audio is playing
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if(!Ctx) return false;
+
+      this._audioCtx = new Ctx();
+      this._oscillator = this._audioCtx.createOscillator();
+      this._gain = this._audioCtx.createGain();
+
+      // Silent — gain at 0
+      this._gain.gain.value = 0;
+      this._oscillator.frequency.value = 1; // 1Hz, inaudible anyway
+      this._oscillator.connect(this._gain);
+      this._gain.connect(this._audioCtx.destination);
+
+      this._oscillator.start();
+
+      // Periodic activity ping — keeps audio context "alive"
+      this._tick = setInterval(() => {
+        if(this._audioCtx && this._audioCtx.state === 'suspended'){
+          this._audioCtx.resume().catch(()=>{});
+        }
+      }, 5000);
+
+      this.enabled = true;
+      return true;
+    } catch(e){
+      this.enabled = false;
+      return false;
+    }
+  }
+
+  async disable(){
+    if(!this.enabled) return;
+    if(this._wakeLock){
+      try { await this._wakeLock.release(); } catch(_){}
+      this._wakeLock = null;
+      if(this._reacquire){
+        document.removeEventListener('visibilitychange', this._reacquire);
+        this._reacquire = null;
+      }
+    }
+    if(this._oscillator){
+      try { this._oscillator.stop(); } catch(_){}
+      this._oscillator = null;
+    }
+    if(this._audioCtx){
+      try { await this._audioCtx.close(); } catch(_){}
+      this._audioCtx = null;
+    }
+    if(this._tick){ clearInterval(this._tick); this._tick = null; }
+    this.enabled = false;
+  }
+}
+const noSleep = new NoSleep();
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║  LAYER 3 — STATE: shared mutable values                   ║
+// ╚══════════════════════════════════════════════════════════╝
+const state = {
+  // Speed
+  smoothKmh: 0,
+  lastDisplayed: -1,
+  lastUpdateMs: 0,
+  estAccel: 0,
+  lastValidatedKmh: 0,  // last GPS-confirmed value, anchor for predictor safety
+  // Position
+  lastPos: null,
+  // Heading
+  lastHeading: null,
+  gpsTurnRate: 0,
+  // G-forces
+  gLat: 0, gLon: 0,
+  gOffX: 0, gOffY: 0, gOffZ: 0,
+  calibSamples: [],
+  calibrated: false,
+  orientQuat: { w:1, x:0, y:0, z:0 },
+  // GPS state
+  freezeTimer: null,
+  frozen: false,
+};
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║  LAYER 4 — RENDER: pure DOM + canvas updates             ║
+// ╚══════════════════════════════════════════════════════════╝
+
+// ── CLOCK ──
+const DAYS   = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+function tickClock(){
+  const n = new Date();
+  dom.timeEl.textContent = `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+  dom.dateEl.textContent = `${DAYS[n.getDay()]} · ${n.getDate()} ${MONTHS[n.getMonth()]}`;
+}
+tickClock(); setInterval(tickClock, 1000);
+
+// ── THEME ──
+let dark = true;
+const MOON = 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z';
+const SUN  = 'M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41M12 6a6 6 0 1 0 0 12A6 6 0 0 0 12 6z';
+dom.themeBtn.addEventListener('click', () => {
+  dark = !dark;
+  document.body.classList.toggle('light', !dark);
+  dom.themeIco.innerHTML = dark
+    ? `<path d="${MOON}"/>`
+    : `<path d="${SUN}" fill="none" stroke="var(--text-secondary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+});
+
+// ── COMPASS ──
+const CARDINALS = ['N','NE','L','SE','S','SO','O','NO'];
+function updateHeading(deg){
+  state.lastHeading = deg;
+  dom.compass.style.transform = `rotate(${-deg}deg)`;
+  dom.cardinal.textContent = CARDINALS[Math.round(deg/45) % 8];
+}
+
+// ── GPS BARS ──
+const BAR_Q = ['q1','q2','q3','q4'];
+function accToBars(acc){
+  if(acc === null) return 0;
+  if(acc <= 6)   return 4;
+  if(acc <= 15)  return 3;
+  if(acc <= 40)  return 2;
+  if(acc <= 100) return 1;
+  return 0;
+}
+function renderBars(n){
+  dom.bars.forEach((b,i) => {
+    b.className = 'bar';
+    if(i < n) b.classList.add(BAR_Q[i]);
+  });
+}
+
+// ── GPS STATE ──
+function setGpsState(s, acc){
+  dom.gpsDot.className = 'gps-dot ' + s;
+  if(s === 'none')        { dom.gpsAcc.textContent = 'sem sinal';  renderBars(0); }
+  else if(s === 'acquiring'){ dom.gpsAcc.textContent = acc ? `±${Math.round(acc)}m` : 'localizando'; renderBars(accToBars(acc)); }
+  else if(s === 'frozen') { dom.gpsAcc.textContent = 'sinal perdido'; }
+  else                    { dom.gpsAcc.textContent = `±${Math.round(acc)}m`; renderBars(accToBars(acc)); }
+}
+
+// ── SPEED ──
+function digitCount(n){ return n >= 100 ? 3 : n >= 10 ? 2 : 1; }
+function renderSpeed(kmh, dim = false){
+  const display = Math.round(kmh);
+  const digits = dim ? 1 : digitCount(display);
+
+  if(display !== state.lastDisplayed || dim){
+    dom.speedEl.textContent = dim ? '—' : display;
+    dom.speedWrap.setAttribute('data-digits', String(digits));
+    dom.speedEl.classList.toggle('dim', dim);
+    dom.speedEl.classList.toggle('speeding', !dim && display > 120);
+    state.lastDisplayed = display;
+    setTimeout(sizeCanvas, 50);
+  }
+}
+
+// ── G-RING CANVAS ──
+let ringSize = 200;
+function sizeCanvas(){
+  const sz = Math.max(dom.speedWrap.offsetWidth, dom.speedWrap.offsetHeight);
+  const RING = Math.max(sz * 1.6, 180);
+  const dpr = window.devicePixelRatio || 1;
+  dom.canvas.width = RING * dpr;
+  dom.canvas.height = RING * dpr;
+  dom.canvas.style.width = RING + 'px';
+  dom.canvas.style.height = RING + 'px';
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.scale(dpr, dpr);
+  ringSize = RING;
+}
+window.addEventListener('load', sizeCanvas);
+window.addEventListener('resize', sizeCanvas);
+
+const G_VIS_THRESHOLD = 0.04;
+function gColor(gx, gy){
+  const brake = Math.max(0, gy);
+  const accel = Math.max(0, -gy);
+  const corner = Math.abs(gx);
+  const total = brake + accel + corner || 1;
+  const rb=[232,33,39], ra=[240,112,48], rc=[200,208,216];
+  return [
+    (rb[0]*brake + ra[0]*accel + rc[0]*corner) / total,
+    (rb[1]*brake + ra[1]*accel + rc[1]*corner) / total,
+    (rb[2]*brake + ra[2]*accel + rc[2]*corner) / total
+  ].map(Math.round);
+}
+function drawRing(gx, gy){
+  const W = ringSize, H = ringSize, cx = W/2, cy = H/2;
+  ctx.clearRect(0, 0, W, H);
+  const mag = Math.sqrt(gx*gx + gy*gy);
+  if(mag < G_VIS_THRESHOLD) return;
+
+  const outerR = W/2 - 2, ringW = outerR * 0.10, innerR = outerR - ringW;
+  const intensity = Math.min(mag / 0.55, 1);
+  const angle = Math.atan2(gy, -gx);
+  const [cr,cg,cb] = gColor(gx, gy);
+  const glowX = cx + Math.cos(angle) * (innerR + ringW/2);
+  const glowY = cy + Math.sin(angle) * (innerR + ringW/2);
+
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, outerR, 0, Math.PI*2); ctx.clip();
+
+  const halo = ctx.createRadialGradient(glowX, glowY, innerR*0.3, glowX, glowY, outerR);
+  halo.addColorStop(0, `rgba(${cr},${cg},${cb},${0.08*intensity})`);
+  halo.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+  ctx.fillStyle = halo; ctx.fillRect(0, 0, W, H);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, outerR, 0, Math.PI*2);
+  ctx.arc(cx, cy, innerR, 0, Math.PI*2, true);
+  ctx.clip();
+  const grd = ctx.createRadialGradient(glowX, glowY, 0, glowX, glowY, outerR*0.88);
+  grd.addColorStop(0,    `rgba(${cr},${cg},${cb},${0.95*intensity})`);
+  grd.addColorStop(0.25, `rgba(${cr},${cg},${cb},${0.58*intensity})`);
+  grd.addColorStop(0.65, `rgba(${cr},${cg},${cb},${0.10*intensity})`);
+  grd.addColorStop(1,    `rgba(${cr},${cg},${cb},0)`);
+  ctx.fillStyle = grd; ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+  ctx.restore();
+}
+
+// ── G-RING RENDER LOOP (60fps) ──
+function renderLoop(){
+  // Fuse phone accelerometer with GPS-derived motion
+  const gpsLonG = -state.estAccel / 9.81;
+  const gpsLatG =  state.gpsTurnRate / 60;
+  const fusedLat = (state.calibrated ? state.gLat : 0) * 0.6 + gpsLatG * 0.4;
+  const fusedLon = (state.calibrated ? state.gLon : 0) * 0.6 + gpsLonG * 0.4;
+  drawRing(fusedLat, fusedLon);
+  requestAnimationFrame(renderLoop);
+}
+requestAnimationFrame(renderLoop);
+
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║  LAYER 5 — SENSORS: GPS, motion, orientation             ║
+// ║  Each function is idempotent and safe to call anytime    ║
+// ╚══════════════════════════════════════════════════════════╝
+
+// ── SPEED CALCULATION ──
+const G_SMOOTH = 0.45;
+const ALPHA_FAST = 1.00, ALPHA_MED = 0.70, ALPHA_SLOW = 0.30;
+
+function adaptiveAlpha(cur, tgt){
+  const d = Math.abs(tgt - cur);
+  return d > 8 ? ALPHA_FAST : d > 3 ? ALPHA_MED : ALPHA_SLOW;
+}
+
+function haversineKmh(p1, p2){
+  const toR = d => d * Math.PI/180, R = 6371000;
+  const dLat = toR(p2.lat - p1.lat), dLon = toR(p2.lon - p1.lon);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toR(p1.lat))*Math.cos(toR(p2.lat))*Math.sin(dLon/2)**2;
+  const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const secs = (p2.ts - p1.ts) / 1000;
+  if(secs < 0.1 || secs > 5) return null;
+  return (dist / secs) * 3.6;
+}
+
+// ── PHYSICAL LIMITS (safety) ──
+// Maximum realistic accelerations for road vehicles:
+//   Tesla Model S Plaid (sport):  ~1.0g ≈ 10 m/s²
+//   Carro normal:                  ~0.4g ≈ 4 m/s²
+//   Frenagem de emergência:        ~1.0g ≈ 10 m/s²
+// Conservadoramente capamos em ±5 m/s² para a estimativa por GPS,
+// que é menos precisa que dados do veículo.
+const ACCEL_MAX = 5.0;
+const ACCEL_MIN = -5.0;
+const PREDICT_MAX_DT = 1.5;       // segundos — para de prever após isso
+const PREDICT_GROWTH_MAX = 1.5;   // velocidade não cresce >50% sem confirmação
+const ACCEL_DECAY_RATE = 0.92;    // estAccel decai 8% por tick entre fixes
+
+function clampAccel(a){ return Math.max(ACCEL_MIN, Math.min(ACCEL_MAX, a)); }
+
+// Speed predictor — extrapola velocidade entre fixes do GPS
+// SAFETY: limita extrapolação para evitar valores fantasma
+function predictSpeed(){
+  if(!state.lastUpdateMs || state.smoothKmh < 0.1) return;
+  const now = performance.now();
+  const dt = (now - state.lastUpdateMs) / 1000;
+
+  // Hard stop — sem fix recente, congela velocidade (não extrapola)
+  if(dt > PREDICT_MAX_DT){
+    state.estAccel *= 0.5;
+    return;
+  }
+
+  // Decay natural do estAccel ao longo do tempo (carro tende a velocidade constante)
+  state.estAccel = clampAccel(state.estAccel * ACCEL_DECAY_RATE);
+
+  const predicted = state.smoothKmh + (state.estAccel * 3.6) * dt;
+
+  // SAFETY GUARD: nunca permitir crescimento absurdo entre fixes reais
+  const lastFixSpeed = state.lastValidatedKmh;
+  const ceiling = Math.max(lastFixSpeed * PREDICT_GROWTH_MAX, lastFixSpeed + 30);
+
+  state.smoothKmh = Math.max(0, Math.min(predicted, ceiling));
+  state.lastUpdateMs = now;
+}
+
+setInterval(() => {
+  if(state.lastDisplayed === -1 || dom.speedEl.classList.contains('dim')) return;
+  predictSpeed();
+  if(Math.round(state.smoothKmh) !== state.lastDisplayed){
+    renderSpeed(state.smoothKmh);
+  }
+}, 100);
+
+// ── GPS POSITION HANDLER ──
+function onPosition(pos){
+  diag.gpsFixes++;
+  diag.lastGpsMs = performance.now();
+
+  const { latitude:lat, longitude:lon, speed, accuracy, heading } = pos.coords;
+  const ts = pos.timestamp;
+
+  if(state.freezeTimer){ clearTimeout(state.freezeTimer); state.freezeTimer = null; state.frozen = false; }
+
+  const locked = accuracy <= 50;
+  setGpsState(locked ? 'locked' : 'acquiring', accuracy);
+
+  let nativeKmh = (speed !== null && speed >= 0) ? speed * 3.6 : null;
+  let haverKmh  = state.lastPos ? haversineKmh(state.lastPos, {lat, lon, ts}) : null;
+  if(haverKmh !== null && haverKmh > 250) haverKmh = null;
+
+  let rawKmh = null;
+  if(nativeKmh !== null && haverKmh !== null){
+    rawKmh = locked ? nativeKmh*0.7 + haverKmh*0.3 : nativeKmh*0.4 + haverKmh*0.6;
+  } else {
+    rawKmh = nativeKmh ?? haverKmh ?? null;
+  }
+
+  // Compute longitudinal acceleration estimate
+  if(rawKmh !== null && state.lastPos){
+    const dtSec = (ts - state.lastPos.ts) / 1000;
+    if(dtSec > 0.05 && dtSec < 5){
+      const prevMs = state.smoothKmh / 3.6;
+      const newMs = rawKmh / 3.6;
+      const accelInst = (newMs - prevMs) / dtSec;
+      // Smoothing + hard physical clamp
+      const blended = state.estAccel + (accelInst - state.estAccel) * 0.5;
+      state.estAccel = clampAccel(blended);
+    }
+    if(heading !== null && state.lastHeading !== null && dtSec > 0){
+      let dh = heading - state.lastHeading;
+      if(dh > 180) dh -= 360;
+      if(dh < -180) dh += 360;
+      state.gpsTurnRate = dh / dtSec;
+    }
+  }
+
+  if(rawKmh !== null){
+    const alpha = adaptiveAlpha(state.smoothKmh, rawKmh);
+    state.smoothKmh = state.smoothKmh + (rawKmh - state.smoothKmh) * alpha;
+    if(state.smoothKmh < 0.8) state.smoothKmh = 0;
+    state.lastUpdateMs = performance.now();
+    state.lastValidatedKmh = state.smoothKmh; // GPS-confirmed truth anchor
+  } else if(state.smoothKmh > 1){
+    state.smoothKmh = state.smoothKmh + (0 - state.smoothKmh) * 0.35;
+    state.estAccel = clampAccel(state.estAccel * 0.5);
+  }
+
+  renderSpeed(state.smoothKmh);
+
+  state.freezeTimer = setTimeout(() => {
+    state.frozen = true;
+    setGpsState('frozen', null);
+  }, 5000);
+
+  if(heading !== null && !isNaN(heading)) updateHeading(heading);
+  state.lastPos = { lat, lon, ts };
+}
+
+function onPositionError(err){
+  if(state.freezeTimer){ clearTimeout(state.freezeTimer); state.freezeTimer = null; }
+  state.frozen = false;
+  setGpsState('none', null);
+  renderSpeed(0, true);
+  state.smoothKmh = 0;
+  state.lastPos = null;
+  state.lastDisplayed = -1;
+}
+
+function startGPS(){
+  if(!('geolocation' in navigator)){
+    setGpsState('none', null);
+    return;
+  }
+  setGpsState('acquiring', null);
+  // iOS Safari benefits from cache tolerance; Android wants freshest
+  const opts = isIOS
+    ? { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
+    : { enableHighAccuracy: true, maximumAge: 0,    timeout: 10000 };
+  navigator.geolocation.watchPosition(onPosition, onPositionError, opts);
+}
+
+// ── ORIENTATION (compass + gravity quaternion on Android) ──
+function onOrientation(e){
+  diag.orientEvents++;
+  if(e.alpha === null || isNaN(e.alpha)) return;
+
+  // Update compass
+  updateHeading(360 - e.alpha);
+
+  // Update quaternion for gravity removal (Android only — uses absolute event)
+  if(!isIOS && e.absolute){
+    const a = e.alpha * Math.PI/180;
+    const b = e.beta  * Math.PI/180;
+    const g = e.gamma * Math.PI/180;
+    const ca = Math.cos(a/2), sa = Math.sin(a/2);
+    const cb = Math.cos(b/2), sb = Math.sin(b/2);
+    const cg = Math.cos(g/2), sg = Math.sin(g/2);
+    state.orientQuat = {
+      w: ca*cb*cg + sa*sb*sg,
+      x: ca*sb*cg - sa*cb*sg,
+      y: ca*cb*sg + sa*sb*cg,
+      z: sa*cb*cg - ca*sb*sg
+    };
+  }
+}
+
+function startOrientation(){
+  if(isIOS){
+    // iOS only fires 'deviceorientation', not 'deviceorientationabsolute'
+    window.addEventListener('deviceorientation', onOrientation);
+  } else {
+    // Android: prefer absolute, fall back to relative
+    window.addEventListener('deviceorientationabsolute', onOrientation, true);
+    window.addEventListener('deviceorientation', e => {
+      // Only act on relative if absolute hasn't fired yet
+      if(state.lastHeading === null) onOrientation(e);
+    });
+  }
+}
+
+// ── MOTION (G-force) ──
+function removeGravityQuat(ax, ay, az){
+  const { w,x,y,z } = state.orientQuat;
+  return [
+    ax - 2*(x*z - w*y) * 9.81,
+    ay - 2*(y*z + w*x) * 9.81,
+    az - (w*w - x*x - y*y + z*z) * 9.81
+  ];
+}
+
+function onMotion(e){
+  diag.motionEvents++;
+
+  const aG = e.acceleration;
+  const aW = e.accelerationIncludingGravity;
+  let ax, ay;
+  let source = 'none';
+
+  // P1: OS already removed gravity (iOS reliable, some Androids)
+  if(aG && aG.x !== null && aG.x !== undefined &&
+     (Math.abs(aG.x) + Math.abs(aG.y) + Math.abs(aG.z)) > 0.001){
+    ax = aG.x; ay = aG.y;
+    state.calibrated = true;
+    source = 'P1-direct';
+
+  // P2: Math removal via quaternion (Android only)
+  } else if(aW && aW.x !== null && !isIOS &&
+            (Math.abs(state.orientQuat.x) + Math.abs(state.orientQuat.y) + Math.abs(state.orientQuat.z)) > 0.01){
+    const r = removeGravityQuat(aW.x, aW.y, aW.z);
+    ax = r[0]; ay = r[1];
+    state.calibrated = true;
+    source = 'P2-quat';
+
+  // P3: Static offset fallback
+  } else if(aW && aW.x !== null){
+    if(!state.calibrated){
+      state.calibSamples.push([aW.x, aW.y, aW.z]);
+      if(state.calibSamples.length >= 20){
+        let sx=0, sy=0, sz=0;
+        state.calibSamples.forEach(s => { sx += s[0]; sy += s[1]; sz += s[2]; });
+        state.gOffX = sx/20; state.gOffY = sy/20; state.gOffZ = sz/20;
+        state.calibrated = true;
+        state.calibSamples = [];
+      }
+      diag.motionSrc = 'P3-calibrating';
+      return;
+    }
+    ax = aW.x - state.gOffX;
+    ay = aW.y - state.gOffY;
+    source = 'P3-offset';
+  } else {
+    return;
+  }
+
+  diag.motionSrc = source;
+  ax /= 9.81; ay /= 9.81;
+
+  // Axis remap: phone frame → car frame using screen orientation
+  const ang = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+  let rawLat, rawLon;
+  if(ang === 90)                 { rawLat =  ay; rawLon = -ax; }
+  else if(ang === 270 || ang === -90) { rawLat = -ay; rawLon =  ax; }
+  else                           { rawLat =  ax; rawLon = -ay; }
+
+  state.gLat = state.gLat + (rawLat - state.gLat) * G_SMOOTH;
+  state.gLon = state.gLon + (rawLon - state.gLon) * G_SMOOTH;
+}
+
+function startMotion(){
+  window.addEventListener('devicemotion', onMotion);
+}
+
+// Tap canvas to recalibrate (manual reset)
+dom.canvas.addEventListener('click', () => {
+  state.calibrated = false;
+  state.calibSamples = [];
+});
+
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║  LAYER 6 — WAKE LOCK (unified via NoSleep class)         ║
+// ║  NoSleep auto-selects WakeLock API or audio fallback     ║
+// ╚══════════════════════════════════════════════════════════╝
+async function enableWakeLock(){
+  const ok = await noSleep.enable();
+  diag.noSleep = noSleep.enabled;
+  if(ok) dom.wakeBadge.textContent = '● tela ativa';
+  return ok;
+}
+
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║  LAYER 7 — PERMISSIONS & BOOT ORCHESTRATION              ║
+// ╚══════════════════════════════════════════════════════════╝
+
+async function bootIOS(){
+  // iOS: show pending until user interacts
+  diag.permGranted.motion = 'pending';
+  diag.permGranted.orient = 'pending';
+  dom.permGate.classList.add('show');
+
+  const grant = async () => {
+    dom.permGate.classList.remove('show');
+
+    // Request both Motion and Orientation permission within same gesture
+    const tasks = [];
+    if(typeof DeviceMotionEvent !== 'undefined' &&
+       typeof DeviceMotionEvent.requestPermission === 'function'){
+      tasks.push(
+        DeviceMotionEvent.requestPermission()
+          .then(s => { diag.permGranted.motion = s; return s; })
+          .catch(() => 'denied')
+      );
+    } else {
+      diag.permGranted.motion = 'n/a';
+    }
+    if(typeof DeviceOrientationEvent !== 'undefined' &&
+       typeof DeviceOrientationEvent.requestPermission === 'function'){
+      tasks.push(
+        DeviceOrientationEvent.requestPermission()
+          .then(s => { diag.permGranted.orient = s; return s; })
+          .catch(() => 'denied')
+      );
+    } else {
+      diag.permGranted.orient = 'n/a';
+    }
+
+    const results = await Promise.all(tasks);
+
+    // Listeners only registered AFTER permission resolves — Safari requirement
+    if(diag.permGranted.motion === 'granted' || diag.permGranted.motion === 'n/a') startMotion();
+    if(diag.permGranted.orient === 'granted' || diag.permGranted.orient === 'n/a') startOrientation();
+
+    // NoSleep within the same gesture chain
+    await enableWakeLock();
+
+    // GPS starts last — Safari is more reliable when chained
+    startGPS();
+
+    // iOS Safari standalone hint
+    if(!isStandalone) dom.installHint.classList.add('show');
+  };
+
+  const skip = async () => {
+    dom.permGate.classList.remove('show');
+    // Even on skip — try wake lock and GPS
+    await enableWakeLock();
+    startGPS();
+    if(!isStandalone) dom.installHint.classList.add('show');
+  };
+
+  dom.permBtn.addEventListener('click', grant);
+  dom.permSkip.addEventListener('click', skip);
+}
+
+function bootAndroid(){
+  // No gate needed — start everything in parallel
+  startMotion();
+  startOrientation();
+  startGPS();
+  enableWakeLock();
+}
+
+// Hint close
+dom.hintClose.addEventListener('click', () => dom.installHint.classList.remove('show'));
+
+// PWA install prompt (Android only)
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  dom.installBtn.classList.add('show');
+});
+dom.installBtn.addEventListener('click', async () => {
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  if(outcome === 'accepted') dom.installBtn.classList.remove('show');
+  deferredPrompt = null;
+});
+window.addEventListener('appinstalled', () => dom.installBtn.classList.remove('show'));
+
+// PWA manifest + Service Worker — bumped to cv5
+(function injectPWA(){
+  const manifest = {
+    name: "Tesla Cluster", short_name: "Cluster",
+    start_url: "./", display: "fullscreen", orientation: "landscape",
+    background_color: "#0a0a0a", theme_color: "#0a0a0a",
+    icons: [{
+      src: "data:image/svg+xml," + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#0a0a0a" rx="80"/><text x="256" y="340" font-size="280" text-anchor="middle" font-family="sans-serif" fill="#e82127" font-weight="bold">T</text></svg>'),
+      sizes: "512x512", type: "image/svg+xml", purpose: "any maskable"
+    }]
+  };
+  const link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type:'application/json'}));
+  document.head.appendChild(link);
+
+  if('serviceWorker' in navigator){
+    const sw = `
+      const C = 'cluster-v5';
+      self.addEventListener('install', e => self.skipWaiting());
+      self.addEventListener('activate', e => {
+        e.waitUntil(
+          caches.keys().then(ks => Promise.all(ks.filter(k => k !== C).map(k => caches.delete(k))))
+            .then(() => clients.claim())
+        );
+      });
+      self.addEventListener('fetch', e => {
+        e.respondWith(
+          fetch(e.request).then(res => {
+            const copy = res.clone();
+            caches.open(C).then(c => c.put(e.request, copy));
+            return res;
+          }).catch(() => caches.match(e.request))
+        );
+      });
+    `;
+    navigator.serviceWorker.register(
+      URL.createObjectURL(new Blob([sw], {type:'application/javascript'})),
+      { scope: './' }
+    ).then(reg => {
+      // Force reload if a new worker takes control
+      reg.addEventListener('updatefound', () => {
+        const newW = reg.installing;
+        if(newW) newW.addEventListener('statechange', () => {
+          if(newW.state === 'activated' && navigator.serviceWorker.controller){
+            // Don't auto-reload — let user finish session
+          }
+        });
+      });
+    }).catch(() => {});
+  }
+})();
+
+// ── DEBUG OVERLAY (triple-tap clock to toggle) ──
+let tapCount = 0, tapTimer = null;
+dom.timeEl.addEventListener('click', () => {
+  tapCount++;
+  clearTimeout(tapTimer);
+  tapTimer = setTimeout(() => { tapCount = 0; }, 600);
+  if(tapCount >= 3){
+    tapCount = 0;
+    dom.debug.classList.toggle('show');
+    if(dom.debug.classList.contains('show')) updateDebug();
+  }
+});
+function updateDebug(){
+  if(!dom.debug.classList.contains('show')) return;
+  const now = performance.now();
+  const lastFix = diag.lastGpsMs ? Math.round((now - diag.lastGpsMs)/1000) + 's' : 'never';
+  const dt = state.lastUpdateMs ? (now - state.lastUpdateMs)/1000 : 999;
+  const predicting = dt < PREDICT_MAX_DT && state.smoothKmh > 0.1;
+  dom.debug.textContent =
+    `Platform:    ${diag.platform}\n` +
+    `Standalone:  ${diag.standalone}\n` +
+    `Motion src:  ${diag.motionSrc}\n` +
+    `Motion evts: ${diag.motionEvents}\n` +
+    `Orient evts: ${diag.orientEvents}\n` +
+    `GPS fixes:   ${diag.gpsFixes}\n` +
+    `Last fix:    ${lastFix} ago\n` +
+    `Perm motion: ${diag.permGranted.motion}\n` +
+    `Perm orient: ${diag.permGranted.orient}\n` +
+    `NoSleep:     ${diag.noSleep}\n` +
+    `─────────────\n` +
+    `Speed:       ${state.smoothKmh.toFixed(1)} km/h\n` +
+    `Last valid:  ${state.lastValidatedKmh.toFixed(1)} km/h\n` +
+    `est.Accel:   ${state.estAccel.toFixed(2)} m/s²\n` +
+    `Predicting:  ${predicting ? 'yes' : 'no'}\n` +
+    `Heading:     ${state.lastHeading?.toFixed(0) ?? '—'}°\n` +
+    `gLat/gLon:   ${state.gLat.toFixed(2)} / ${state.gLon.toFixed(2)}`;
+  setTimeout(updateDebug, 500);
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║  GO!                                                      ║
+// ╚══════════════════════════════════════════════════════════╝
+if(isIOS) bootIOS();
+else      bootAndroid();
+</script>
+</body>
+</html>
