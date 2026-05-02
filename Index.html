@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Cluster</title>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --border: rgba(255,255,255,0.06);
+      --text-primary: #ffffff;
+      --text-secondary: rgba(255,255,255,0.38);
+      --accent: #e82127;
+      --accent-glow: rgba(232,33,39,0.18);
+      --speed-size: clamp(80px, 18vw, 140px);
+    }
+
+    .light {
+      --bg: #f0f0f0;
+      --surface: #fafafa;
+      --border: rgba(0,0,0,0.08);
+      --text-primary: #0a0a0a;
+      --text-secondary: rgba(0,0,0,0.38);
+      --accent: #e82127;
+      --accent-glow: rgba(232,33,39,0.10);
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: 'DM Sans', sans-serif;
+      transition: background 0.4s, color 0.4s;
+      touch-action: none;
+      -webkit-user-select: none; user-select: none;
+    }
+
+    #app {
+      width: 100vw; height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      grid-template-rows: 1fr;
+      align-items: center;
+      padding: 0 5vw;
+      gap: 4vw;
+    }
+
+    /* ── LEFT PANEL ── */
+    .panel-left {
+      display: flex;
+      flex-direction: column;
+      gap: 2.4vh;
+      align-items: flex-start;
+    }
+
+    .compass-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6vh;
+    }
+
+    .label {
+      font-family: 'DM Sans', sans-serif;
+      font-size: clamp(8px, 1.4vw, 12px);
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+
+    .compass-ring {
+      position: relative;
+      width: clamp(56px, 10vw, 88px);
+      height: clamp(56px, 10vw, 88px);
+    }
+
+    .compass-ring svg {
+      width: 100%; height: 100%;
+      transition: transform 0.6s cubic-bezier(0.34,1.2,0.64,1);
+    }
+
+    .compass-cardinal {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: clamp(13px, 2.2vw, 18px);
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--text-primary);
+      margin-top: 0.5vh;
+    }
+
+    .divider {
+      width: 32px;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .gps-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6em;
+    }
+
+    .gps-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 6px var(--accent-glow);
+      animation: pulse 2s infinite;
+      flex-shrink: 0;
+    }
+
+    .gps-dot.no-signal {
+      background: var(--text-secondary);
+      box-shadow: none;
+      animation: none;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.7); }
+    }
+
+    .gps-text {
+      font-size: clamp(9px, 1.5vw, 13px);
+      color: var(--text-secondary);
+      font-weight: 400;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── CENTER SPEED ── */
+    .center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      position: relative;
+    }
+
+    .speed-value {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: var(--speed-size);
+      font-weight: 700;
+      line-height: 0.88;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      transition: color 0.3s;
+      text-align: center;
+      min-width: 3ch;
+    }
+
+    .speed-value.speeding {
+      color: var(--accent);
+      text-shadow: 0 0 40px var(--accent-glow);
+    }
+
+    .speed-unit {
+      font-family: 'DM Sans', sans-serif;
+      font-size: clamp(10px, 2vw, 16px);
+      font-weight: 300;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-top: 0.4em;
+    }
+
+    .speed-bar-wrap {
+      width: clamp(80px, 14vw, 130px);
+      height: 2px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-top: 1.8vh;
+      overflow: hidden;
+    }
+
+    .speed-bar {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.5s cubic-bezier(0.25,1,0.5,1);
+      box-shadow: 0 0 6px var(--accent-glow);
+    }
+
+    /* ── RIGHT PANEL ── */
+    .panel-right {
+      display: flex;
+      flex-direction: column;
+      gap: 2.4vh;
+      align-items: flex-end;
+    }
+
+    .time-wrap { text-align: right; }
+
+    .time-value {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: clamp(22px, 5vw, 44px);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      line-height: 1;
+      color: var(--text-primary);
+    }
+
+    .time-date {
+      font-size: clamp(8px, 1.4vw, 12px);
+      color: var(--text-secondary);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-top: 0.3em;
+      font-weight: 400;
+    }
+
+    .theme-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: clamp(32px, 5vw, 44px);
+      height: clamp(32px, 5vw, 44px);
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      cursor: pointer;
+      transition: background 0.3s, border-color 0.3s, transform 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .theme-btn:active { transform: scale(0.92); }
+
+    .theme-btn svg {
+      width: 45%; height: 45%;
+      fill: var(--text-secondary);
+      transition: fill 0.3s;
+    }
+
+    .theme-btn:hover svg { fill: var(--text-primary); }
+
+    /* ── SUBTLE SCAN LINE ATMOSPHERE ── */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 3px,
+        rgba(0,0,0,0.03) 3px,
+        rgba(0,0,0,0.03) 4px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* ── WAKELOCK INDICATOR ── */
+    .wakelock-badge {
+      position: fixed;
+      bottom: 2vh;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      opacity: 0.4;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <!-- LEFT -->
+  <div class="panel-left">
+    <div class="compass-wrap">
+      <span class="label">Direção</span>
+      <div class="compass-ring">
+        <svg id="compassSvg" viewBox="0 0 88 88" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="44" cy="44" r="42" stroke="var(--border)" stroke-width="1.5"/>
+          <!-- tick marks -->
+          <g stroke="var(--text-secondary)" stroke-width="1">
+            <line x1="44" y1="4"  x2="44" y2="12"/>
+            <line x1="84" y1="44" x2="76" y2="44"/>
+            <line x1="44" y1="84" x2="44" y2="76"/>
+            <line x1="4"  y1="44" x2="12" y2="44"/>
+          </g>
+          <!-- needle -->
+          <polygon id="needleN" points="44,10 41,44 44,50 47,44" fill="var(--accent)"/>
+          <polygon id="needleS" points="44,78 41,44 44,38 47,44" fill="var(--text-secondary)" opacity="0.4"/>
+          <circle cx="44" cy="44" r="4" fill="var(--surface)" stroke="var(--border)" stroke-width="1.5"/>
+        </svg>
+      </div>
+      <span class="compass-cardinal" id="cardinalText">—</span>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="gps-row">
+      <span class="gps-dot" id="gpsDot"></span>
+      <span class="gps-text" id="gpsText">Aguardando GPS…</span>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="center">
+    <div class="speed-value" id="speedVal">0</div>
+    <div class="speed-unit">km/h</div>
+    <div class="speed-bar-wrap">
+      <div class="speed-bar" id="speedBar" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="panel-right">
+    <div class="time-wrap">
+      <div class="time-value" id="timeVal">--:--</div>
+      <div class="time-date" id="dateVal">—</div>
+    </div>
+
+    <div class="divider" style="width:32px;margin-left:auto;"></div>
+
+    <button class="theme-btn" id="themeBtn" aria-label="Alternar tema">
+      <!-- moon icon -->
+      <svg id="themeIcon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<div class="wakelock-badge" id="wakelockBadge">tela ativa</div>
+
+<script>
+  // ── THEME ──
+  const body = document.body;
+  const themeBtn = document.getElementById('themeBtn');
+  const themeIcon = document.getElementById('themeIcon');
+  let isDark = true;
+
+  const moonPath = 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z';
+  const sunPath  = 'M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42M12 5a7 7 0 1 0 0 14A7 7 0 0 0 12 5z';
+
+  themeBtn.addEventListener('click', () => {
+    isDark = !isDark;
+    body.classList.toggle('light', !isDark);
+    themeIcon.innerHTML = isDark
+      ? `<path d="${moonPath}"/>`
+      : `<path d="${sunPath}" fill="none" stroke="var(--text-secondary)" stroke-width="2" stroke-linecap="round"/>`;
+  });
+
+  // ── CLOCK ──
+  const timeEl = document.getElementById('timeVal');
+  const dateEl = document.getElementById('dateVal');
+  const days   = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  function updateClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2,'0');
+    const m = String(now.getMinutes()).padStart(2,'0');
+    timeEl.textContent = `${h}:${m}`;
+    dateEl.textContent = `${days[now.getDay()]} · ${now.getDate()} ${months[now.getMonth()]}`;
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // ── SPEED & COMPASS ──
+  const speedEl  = document.getElementById('speedVal');
+  const speedBar = document.getElementById('speedBar');
+  const gpsDot   = document.getElementById('gpsDot');
+  const gpsText  = document.getElementById('gpsText');
+  const compassSvg = document.getElementById('compassSvg');
+  const cardinalEl = document.getElementById('cardinalText');
+
+  const MAX_SPEED = 200; // km/h para barra 100%
+
+  function toCardinal(deg) {
+    const dirs = ['N','NE','L','SE','S','SO','O','NO'];
+    return dirs[Math.round(deg / 45) % 8];
+  }
+
+  let lastHeading = null;
+
+  function updateSpeed(kmh) {
+    const rounded = Math.round(kmh);
+    speedEl.textContent = rounded;
+    speedEl.classList.toggle('speeding', rounded > 120);
+    const pct = Math.min((rounded / MAX_SPEED) * 100, 100);
+    speedBar.style.width = pct + '%';
+  }
+
+  function updateHeading(deg) {
+    if (deg === null) return;
+    lastHeading = deg;
+    // rotate the compass so needle always points North (fixed), dial rotates
+    compassSvg.style.transform = `rotate(${-deg}deg)`;
+    cardinalEl.textContent = toCardinal(deg);
+  }
+
+  // GPS
+  if ('geolocation' in navigator) {
+    navigator.geolocation.watchPosition(
+      (pos) => {
+        const kmh = (pos.coords.speed || 0) * 3.6;
+        updateSpeed(kmh);
+
+        const acc = Math.round(pos.coords.accuracy);
+        gpsText.textContent = `±${acc}m`;
+        gpsDot.classList.remove('no-signal');
+
+        if (pos.coords.heading !== null && !isNaN(pos.coords.heading)) {
+          updateHeading(pos.coords.heading);
+        }
+      },
+      (err) => {
+        gpsDot.classList.add('no-signal');
+        gpsText.textContent = 'Sem sinal GPS';
+        speedEl.textContent = '—';
+      },
+      { enableHighAccuracy: true, maximumAge: 500, timeout: 10000 }
+    );
+  } else {
+    gpsText.textContent = 'GPS indisponível';
+    gpsDot.classList.add('no-signal');
+  }
+
+  // DeviceOrientation fallback para compass
+  if ('DeviceOrientationEvent' in window) {
+    window.addEventListener('deviceorientationabsolute', (e) => {
+      if (e.absolute && e.alpha !== null) updateHeading(360 - e.alpha);
+    }, true);
+    window.addEventListener('deviceorientation', (e) => {
+      if (lastHeading === null && e.alpha !== null) updateHeading(360 - e.alpha);
+    });
+  }
+
+  // ── WAKE LOCK ──
+  const badge = document.getElementById('wakelockBadge');
+  async function requestWakeLock() {
+    if ('wakeLock' in navigator) {
+      try {
+        await navigator.wakeLock.request('screen');
+        badge.textContent = '● tela ativa';
+      } catch(e) {
+        badge.textContent = 'wake lock indisponível';
+      }
+    }
+  }
+  requestWakeLock();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') requestWakeLock();
+  });
+</script>
+</body>
+</html>
